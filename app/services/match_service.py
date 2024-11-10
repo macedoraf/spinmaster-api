@@ -10,18 +10,29 @@ from app.schemas.match import MatchCreate, MatchUpdate
 class MatchService:
     def __init__(self, db: Session):
         self.db = db
+    
+    def determine_winner(self, sets: List[Set], player1_id: int, player2_id: int) -> int:
+        """Determina o vencedor baseado nos sets"""
+        sets_won_p1 = sum(1 for set_data in sets if set_data.score_p1 > set_data.score_p2)
+        sets_won_p2 = sum(1 for set_data in sets if set_data.score_p2 > set_data.score_p1)
+        
+        return player1_id if sets_won_p1 > sets_won_p2 else player2_id
 
     def create_match(self, match_data: MatchCreate) -> Match:
         try:
+            winner_id = self.determine_winner(match_data.sets, match_data.player1_id, match_data.player2_id)
+            
             match = Match(
                 player1_id=match_data.player1_id,
                 player2_id=match_data.player2_id,
                 tournament_id=match_data.tournament_id,
+                winner_id=winner_id
             )
             
             self.db.add(match)
             self.db.flush()
             
+            # Create sets
             sets = [
                 Set(
                     match_id=match.id,
@@ -33,10 +44,6 @@ class MatchService:
             ]
             
             self.db.add_all(sets)
-            
-            sets_won_p1 = sum(1 for set_data in match_data.sets if set_data.score_p1 > set_data.score_p2)
-            match.winner_id = match_data.player1_id if sets_won_p1 >= 3 else match_data.player2_id
-            
             self.db.commit()
             self.db.refresh(match)
             
@@ -80,7 +87,7 @@ class MatchService:
         
         if match_update.tournament_id is not None:
             match.tournament_id = match_update.tournament_id
-            match.updated_at = datetime.utcnow()
+            match.updated_at = datetime.now()
             
         try:
             self.db.commit()
