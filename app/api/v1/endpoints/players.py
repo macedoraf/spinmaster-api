@@ -1,61 +1,101 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
-from sqlalchemy.orm import Session
 from typing import List
-
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
 from app.api import deps
-from app.schemas import PlayerCreate, PlayerUpdate, PlayerResponse
 from app.services.player_service import PlayerService
+from app.schemas.player import Player, PlayerCreate, PlayerUpdate
 
 router = APIRouter()
-player_service = PlayerService()
 
-@router.post("/", response_model=PlayerResponse)
+@router.post("/", response_model=Player, status_code=status.HTTP_201_CREATED)
 def create_player(
-    player: PlayerCreate,
+    player_in: PlayerCreate,
     db: Session = Depends(deps.get_db)
 ):
-    """Create a new player"""
-    return player_service.create_player(db=db, player=player)
+    """
+    Criar novo jogador
+    """
+    player_service = PlayerService(db)
+    return player_service.create(player_in)
 
-@router.get("/{player_id}", response_model=PlayerResponse)
+@router.get("/{player_id}", response_model=Player)
 def get_player(
-    player_id: int = Path(..., title="The ID of the player to get"),
+    player_id: int,
     db: Session = Depends(deps.get_db)
 ):
-    """Get player by ID"""
-    player = player_service.get_player(db=db, player_id=player_id)
+    """
+    Obter jogador por ID
+    """
+    player_service = PlayerService(db)
+    player = player_service.get_by_id(player_id)
     if not player:
-        raise HTTPException(status_code=404, detail="Player not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found"
+        )
     return player
 
-@router.get("/", response_model=List[PlayerResponse])
+@router.get("/", response_model=List[Player])
 def list_players(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=100),
+    skip: int = 0,
+    limit: int = 100,
+    active_only: bool = True,
     db: Session = Depends(deps.get_db)
 ):
-    """List all players with pagination"""
-    return player_service.get_players(db=db, skip=skip, limit=limit)
+    """
+    Listar jogadores com paginação
+    """
+    player_service = PlayerService(db)
+    return player_service.get_all(skip=skip, limit=limit, active_only=active_only)
 
-@router.put("/{player_id}", response_model=PlayerResponse)
+@router.patch("/{player_id}", response_model=Player)
 def update_player(
     player_id: int,
-    player: PlayerUpdate,
+    player_in: PlayerUpdate,
     db: Session = Depends(deps.get_db)
 ):
-    """Update player information"""
-    updated_player = player_service.update_player(db=db, player_id=player_id, player=player)
-    if not updated_player:
-        raise HTTPException(status_code=404, detail="Player not found")
-    return updated_player
+    """
+    Atualizar jogador
+    """
+    player_service = PlayerService(db)
+    player = player_service.get_by_id(player_id)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found"
+        )
+    return player_service.update(player, player_in)
 
-@router.delete("/{player_id}")
+@router.delete("/{player_id}", response_model=Player)
 def delete_player(
-    player_id: int = Path(..., title="The ID of the player to delete"),
+    player_id: int,
     db: Session = Depends(deps.get_db)
 ):
-    """Delete a player"""
-    success = player_service.deactivate_player(db=db, player_id=player_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Player not found")
-    return {"message": "Player successfully deleted"}
+    """
+    Deletar jogador (soft delete)
+    """
+    player_service = PlayerService(db)
+    player = player_service.get_by_id(player_id)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found"
+        )
+    return player_service.soft_delete(player)
+
+@router.post("/{player_id}/reactivate", response_model=Player)
+def reactivate_player(
+    player_id: int,
+    db: Session = Depends(deps.get_db)
+):
+    """
+    Reativar jogador
+    """
+    player_service = PlayerService(db)
+    player = player_service.get_by_id(player_id)
+    if not player:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Player not found"
+        )
+    return player_service.reactivate(player)

@@ -1,74 +1,107 @@
 from typing import List, Optional
 from sqlalchemy.orm import Session
-from fastapi import HTTPException
-
+from fastapi import HTTPException, status
+from datetime import datetime
+from app.core.security import get_password_hash
 from app.models.player import Player
 from app.schemas.player import PlayerCreate, PlayerUpdate
-from app.utils.constants import INITIAL_RATING
-from app.db.session import get_db
-
 
 class PlayerService:
-    def __init__(self):
-        self.db = get_db()
+    def __init__(self, db: Session):
+        self.db = db
 
-    async def create_player(self, player: PlayerCreate) -> Player:
-        """Create a new player with initial rating."""
-        db_player = Player(
-            name=player.name,
-            email=player.email,
-            rating=INITIAL_RATING,
-            active=True
+    def get_by_id(self, player_id: int) -> Optional[Player]:
+        return self.db.query(Player).filter(Player.id == player_id).first()
+
+    def get_by_email(self, email: str) -> Optional[Player]:
+        return self.db.query(Player).filter(Player.email == email).first()
+
+    def get_by_username(self, username: str) -> Optional[Player]:
+        return self.db.query(Player).filter(Player.username == username).first()
+
+    def get_all(
+        self, 
+        skip: int = 0, 
+        limit: int = 100,
+        active_only: bool = True
+    ) -> List[Player]:
+        query = self.db.query(Player)
+        if active_only:
+            query = query.filter(Player.is_active == True)
+        return query.offset(skip).limit(limit).all()
+
+    def create(self, player_create: PlayerCreate) -> Player:
+        # Verificar se já existe usuário com mesmo email
+        if self.get_by_email(email=player_create.email):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered"
+            )
+        
+        # Verificar se já existe usuário com mesmo username
+        if self.get_by_username(username=player_create.username):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username already taken"
+            )
+
+        # Criar o player
+        player = Player(
+            username=player_create.username,
+            email=player_create.email,
+            full_name=player_create.full_name,
+            hashed_password=get_password_hash(player_create.password)
         )
-        self.db.add(db_player)
-        try:
-            await self.db.flush()
-            await self.db.refresh(db_player)
-            return db_player
-        except Exception as e:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail=str(e))
-
-    async def get_player(self, player_id: int) -> Optional[Player]:
-        """Get player by ID."""
-        return await self.db.query(Player).filter(Player.id == player_id).first()
-
-    async def get_players(self, skip: int = 0, limit: int = 100) -> List[Player]:
-        """Get list of players with pagination."""
-        return await self.db.query(Player).offset(skip).limit(limit).all()
-
-    async def update_player(self, player_id: int, player_update: PlayerUpdate) -> Optional[Player]:
-        """Update player information."""
-        db_player = await self.get_player(player_id)
-        if not db_player:
-            raise HTTPException(status_code=404, detail="Player not found")
         
+        self.db.add(player)
+        self.db.commit()
+        self.db.refresh(player)
+        
+        return player
+
+    def update(self, player: Player, player_update: PlayerUpdate) -> Player:
         update_data = player_update.dict(exclude_unset=True)
+        
+        # Verificar email único se estiver sendo atualizado
+        if "email" in update_data and update_data["email"] != player.email:
+            if self.get_by_email(email=update_data["email"]):
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Email already registered"
+                )
+
+        # Atualizar os campos
         for field, value in update_data.items():
-            setattr(db_player, field, value)
-        
-        try:
-            await self.db.flush()
-            await self.db.refresh(db_player)
-            return db_player
-        except Exception as e:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail=str(e))
+            setattr(player, field, value)
 
-    async def deactivate_player(self, player_id: int) -> bool:
-        """Deactivate a player (soft delete)."""
-        db_player = await self.get_player(player_id)
-        if not db_player:
-            raise HTTPException(status_code=404, detail="Player not found")
+        self.db.add(player)
+        self.db.commit()
+        self.db.refresh(player)
         
-        db_player.active = False
-        try:
-            await self.db.flush()
-            return True
-        except Exception as e:
-            await self.db.rollback()
-            raise HTTPException(status_code=400, detail=str(e))
+        return player
 
-    async def get_player_by_email(self, email: str) -> Optional[Player]:
-        """Get player by email."""
-        return await self.db.query(Player).filter(Player.email == email).first()
+    def delete(self, player: Player) -> Player:
+        self.db.delete(player)
+        self.db.commit()
+        return player
+
+    def soft_delete(self, player: Player) -> Player:
+        player.is_active = False
+        self.db.add(player)
+        self.db.commit()
+        self.db.refresh(player)
+        return player
+
+    def reactivate(self, player: Player) -> Player:
+        player.is_active = True
+        self.db.add(player)
+        self.db.commit()
+        self.db.refresh(player)
+        return player
+
+    def update_last_login(self, player: Player) -> Player:
+        player.last_login = datetime.now()
+        self.db.add(player)
+        self.db.commit()
+        self.db.refresh(player)
+        return player

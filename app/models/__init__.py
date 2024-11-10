@@ -1,5 +1,5 @@
 from .base import Base, TimestampMixin
-from .player import Player, PlayerCategory
+from .player import Player
 from .match import Match, MatchType
 from .tournament import Tournament, TournamentStatus
 from .tournament_player import TournamentPlayer

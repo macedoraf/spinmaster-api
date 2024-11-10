@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "spinmaster-api"
+version = "0.1.0"
+authors = [
+    { name = "Rafael Macedo", email = "macedo.rafanazareth@gmail.com" },
+]
+description = "API for Table Tennis Management System"
+requires-python = ">=3.12"
