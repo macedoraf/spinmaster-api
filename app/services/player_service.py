@@ -60,7 +60,7 @@ class PlayerService:
         return player
 
     def update(self, player: Player, player_update: PlayerUpdate) -> Player:
-        update_data = player_update.dict(exclude_unset=True)
+        update_data = player_update.model_dump(exclude_unset=True)
         
         # Verificar email único se estiver sendo atualizado
         if "email" in update_data and update_data["email"] != player.email:
@@ -69,6 +69,10 @@ class PlayerService:
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail="Email already registered"
                 )
+            
+        if "avatar_url" in update_data:
+            update_data["avatar_url"] = str(update_data["avatar_url"]) if update_data["avatar_url"] else None
+
 
         # Atualizar os campos
         for field, value in update_data.items():

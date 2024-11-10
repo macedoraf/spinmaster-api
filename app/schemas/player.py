@@ -20,9 +20,17 @@ class PlayerCreate(PlayerBase):
 class PlayerUpdate(BaseModel):
     email: Optional[EmailStr] = None
     full_name: Optional[str] = Field(None, min_length=3, max_length=100)
-    avatar_url: Optional[HttpUrl] = None
+    avatar_url: Optional[str] = None
     bio: Optional[str] = None
     is_active: Optional[bool] = None
+    
+    @validator('avatar_url')
+    def validate_avatar_url(cls, v):
+        if v is not None:
+            # Validação básica de URL
+            if not v.startswith(('http://', 'https://')):
+                raise ValueError('avatar_url must be a valid URL')
+        return v
 
 class Player(PlayerBase):
     id: int
