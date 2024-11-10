@@ -1,0 +1,67 @@
+.PHONY: help
+help: ## Mostra esta mensagem de ajuda
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUso:\n  make \033[36m<target>\033[0m\n\nTargets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+
+.PHONY: install
+install: ## Instala dependências do projeto
+	pip install -r requirements.txt
+
+.PHONY: run
+run: ## Inicia o servidor de desenvolvimento
+	uvicorn app.main:app --reload
+
+.PHONY: test
+test: ## Executa os testes
+	pytest
+
+.PHONY: coverage
+coverage: ## Executa os testes com cobertura
+	pytest --cov=app --cov-report=html
+
+.PHONY: lint
+lint: ## Executa linters (flake8, mypy)
+	flake8 app tests
+	mypy app tests
+
+.PHONY: format
+format: ## Formata o código (black, isort)
+	black app tests
+	isort app tests
+
+.PHONY: clean
+clean: ## Remove arquivos temporários
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	find . -type f -name "*.pyc" -delete
+	find . -type f -name "*.pyo" -delete
+	find . -type f -name "*.pyd" -delete
+	find . -type f -name ".coverage" -delete
+	find . -type d -name "*.egg-info" -exec rm -rf {} +
+	find . -type d -name "*.egg" -exec rm -rf {} +
+	find . -type d -name ".pytest_cache" -exec rm -rf {} +
+	find . -type d -name ".mypy_cache" -exec rm -rf {} +
+	find . -type d -name ".coverage" -exec rm -rf {} +
+	find . -type d -name "htmlcov" -exec rm -rf {} +
+
+.PHONY: migrations
+migrations: ## Gera novas migrações
+	alembic revision --autogenerate
+
+.PHONY: migrate
+migrate: ## Aplica migrações
+	alembic upgrade head
+
+.PHONY: downgrade
+downgrade: ## Reverte última migração
+	alembic downgrade -1
+
+.PHONY: docker-build
+docker-build: ## Constrói imagem Docker
+	docker-compose build
+
+.PHONY: docker-up
+docker-up: ## Inicia containers
+	docker-compose up -d
+
+.PHONY: docker-down
+docker-down: ## Para containers
+	docker-compose down
