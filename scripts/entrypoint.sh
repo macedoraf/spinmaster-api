@@ -10,4 +10,4 @@ alembic upgrade head
 
 # Iniciar a aplicação
 echo "Starting application"
-uvicorn app.main:app --host $HOST --port $PORT --workers $WORKERS
+uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1

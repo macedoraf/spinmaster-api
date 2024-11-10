@@ -6,66 +6,42 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: spinmaster-api
-    ports:
-      - "${PORT}:${PORT}"
     environment:
       - POSTGRES_HOST=postgres
-      - REDIS_HOST=redis
-      - ENVIRONMENT=${ENVIRONMENT}
-      - DEBUG=${DEBUG}
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_PORT=${POSTGRES_PORT}
-      - REDIS_PORT=${REDIS_PORT}
-      - SECRET_KEY=${SECRET_KEY}
-      - HOST=0.0.0.0
-    env_file:
-      - .env
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=spinmaster
+      - POSTGRES_PORT=5432
+      # Não é necessário definir DATABASE_URL aqui, pois será construída pelo settings
+    ports:
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - spinmaster-network
-    restart: unless-stopped
+    volumes:
+      - .:/app
 
   postgres:
     image: postgres:15-alpine
     container_name: spinmaster-postgres
     environment:
-      - POSTGRES_DB=${POSTGRES_DB}
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-    ports:
-      - "${POSTGRES_PORT}:${POSTGRES_PORT}"
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - spinmaster-network
+      - ./scripts/postgres:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
     healthcheck:
-      test: ["CMD-SHELL", "sh -c 'pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}'"]
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
       timeout: 5s
-      retries: 3
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    container_name: spinmaster-redis
-    ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
-    volumes:
-      - redis_data:/data
+      retries: 5
     networks:
       - spinmaster-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
 
 networks:
   spinmaster-network:
@@ -73,6 +49,3 @@ networks:
 
 volumes:
   postgres_data:
-    name: spinmaster_postgres_data
-  redis_data:
-    name: spinmaster_redis_data
