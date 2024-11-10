@@ -1,15 +1,24 @@
-# Import all the models, so that Base has them before being
-# imported by Alembic
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import declared_attr
 from app.db.session import engine
 
-Base = declarative_base()
+class CustomBase:
+    @declared_attr
+    def __tablename__(cls):
+        return cls.__name__.lower()
 
-# Import all models here
-from app.models.player import Player
-from app.models.match import Match
-from app.models.tournament import Tournament
-from app.models.ranking import Ranking
+    # Adicione aqui outros atributos/métodos comuns para todos os modelos
+    __allow_unmapped__ = True
+
+Base = declarative_base(cls=CustomBase)
+
+# Importar os modelos em ordem de dependência
+from app.models.player import Player  # Tabela independente
+from app.models.tournament import Tournament  # Tabela independente
+# from app.models.tournament_player import TournamentPlayer  # Depende de Player e Tournament
+from app.models.match import Match  # Depende de Player e Tournament
+from app.models.set import Set  # Depende de Match
+from app.models.ranking import Ranking  # Depende de Player
 
 # Create tables if they don't exist
 def init_db():

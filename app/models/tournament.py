@@ -23,4 +23,4 @@ class Tournament(Base, TimestampMixin):
     
     # Relationships
     matches = relationship("Match", back_populates="tournament")
-    tournament_players = relationship("TournamentPlayer", back_populates="tournament")
+

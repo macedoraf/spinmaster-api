@@ -5,21 +5,17 @@ import secrets
 from typing import Any, Dict, List
 
 class Settings(BaseSettings):
-    # API Settings
     API_V1_STR: str = "/api/v1"
     PROJECT_NAME: str = "SpinMaster API"
     VERSION: str = "1.0.0"
     DEBUG: bool = False
     
-    # Security
     SECRET_KEY: str = secrets.token_urlsafe(32)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24  # 24 hours
     ALGORITHM: str = "HS256"
     
-    # CORS Settings
     BACKEND_CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://localhost:8000"]
     
-    # Database
     POSTGRES_SERVER: str
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str

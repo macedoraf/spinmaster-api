@@ -1,44 +1,74 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Path
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
-from typing import List
 
-from app.api import deps
-from app.schemas.match import MatchCreate, MatchResponse
+from app.api.deps import get_db
+from app.schemas.match import Match, MatchCreate, MatchUpdate
 from app.services.match_service import MatchService
 
 router = APIRouter()
-match_service = MatchService()
 
-@router.post("/", response_model=MatchResponse)
+@router.post("/", response_model=Match)
 def create_match(
-    match: MatchCreate,
-    db: Session = Depends(deps.get_db)
+    match_data: MatchCreate,
+    db: Session = Depends(get_db)
 ):
-    """Record a new match"""
-    return match_service.create_match(db=db, match=match)
+    """
+    Cria uma nova partida com seus sets
+    """
+    match_service = MatchService(db)
+    return match_service.create_match(match_data)
 
-@router.get("/{match_id}", response_model=MatchResponse)
+@router.get("/{match_id}", response_model=Match)
 def get_match(
-    match_id: int = Path(..., title="The ID of the match to get"),
-    db: Session = Depends(deps.get_db)
+    match_id: int,
+    db: Session = Depends(get_db)
 ):
-    """Get match by ID"""
-    match = match_service.get_match(db=db, match_id=match_id)
-    if not match:
-        raise HTTPException(status_code=404, detail="Match not found")
-    return match
+    """
+    Retorna uma partida específica
+    """
+    match_service = MatchService(db)
+    return match_service.get_match(match_id)
 
-@router.get("/player/{player_id}", response_model=List[MatchResponse])
-def get_player_matches(
-    player_id: int,
+@router.get("/", response_model=List[Match])
+def get_matches(
+    db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=100),
-    db: Session = Depends(deps.get_db)
+    limit: int = Query(100, ge=1, le=100),
+    player_id: Optional[int] = None,
+    tournament_id: Optional[int] = None
 ):
-    """Get matches for a specific player"""
-    return match_service.get_player_matches(
-        db=db, 
-        player_id=player_id, 
-        skip=skip, 
-        limit=limit
+    """
+    Lista partidas com opção de filtros
+    """
+    match_service = MatchService(db)
+    return match_service.get_matches(
+        skip=skip,
+        limit=limit,
+        player_id=player_id,
+        tournament_id=tournament_id
     )
+
+@router.patch("/{match_id}", response_model=Match)
+def update_match(
+    match_id: int,
+    match_update: MatchUpdate,
+    db: Session = Depends(get_db)
+):
+    """
+    Atualiza uma partida
+    """
+    match_service = MatchService(db)
+    return match_service.update_match(match_id, match_update)
+
+@router.delete("/{match_id}")
+def delete_match(
+    match_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Remove uma partida e seus sets
+    """
+    match_service = MatchService(db)
+    match_service.delete_match(match_id)
+    return {"message": "Match successfully deleted"}

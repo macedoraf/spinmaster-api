@@ -1,83 +1,103 @@
-from typing import List, Optional, Tuple
-from datetime import datetime
-from sqlalchemy.orm import Session
+from typing import List, Optional
 from fastapi import HTTPException
+from sqlalchemy.orm import Session
+from datetime import datetime
 
 from app.models.match import Match
-from app.models.player import Player
-from app.schemas.match import MatchCreate
-from app.services.ranking_service import RankingService
-from app.db.session import get_db
+from app.models.set import Set
+from app.schemas.match import MatchCreate, MatchUpdate
 
 class MatchService:
-    def __init__(self):
-        self.db = get_db()
-        self.ranking_service = RankingService()
+    def __init__(self, db: Session):
+        self.db = db
 
-    async def create_match(self, match: MatchCreate) -> Match:
-        """Create a new match and update players' ratings."""
-        # Verify both players exist and are active
-        winner = await self.db.query(Player).filter(
-            Player.id == match.winner_id, 
-            Player.active == True
-        ).first()
-        loser = await self.db.query(Player).filter(
-            Player.id == match.loser_id, 
-            Player.active == True
-        ).first()
-
-        if not winner or not loser:
-            raise HTTPException(status_code=404, detail="One or both players not found or inactive")
-
-        # Create match record
-        db_match = Match(
-            winner_id=match.winner_id,
-            loser_id=match.loser_id,
-            score=match.score,
-            tournament_id=match.tournament_id,
-            match_date=datetime.now()
-        )
-        self.db.add(db_match)
-
+    def create_match(self, match_data: MatchCreate) -> Match:
         try:
-            # Update rankings
-            await self.ranking_service.update_ratings_after_match(winner, loser)
-            await self.db.flush()
-            await self.db.refresh(db_match)
-            return db_match
+            match = Match(
+                player1_id=match_data.player1_id,
+                player2_id=match_data.player2_id,
+                tournament_id=match_data.tournament_id,
+            )
+            
+            self.db.add(match)
+            self.db.flush()
+            
+            sets = [
+                Set(
+                    match_id=match.id,
+                    set_number=set_data.set_number,
+                    score_p1=set_data.score_p1,
+                    score_p2=set_data.score_p2
+                )
+                for set_data in match_data.sets
+            ]
+            
+            self.db.add_all(sets)
+            
+            sets_won_p1 = sum(1 for set_data in match_data.sets if set_data.score_p1 > set_data.score_p2)
+            match.winner_id = match_data.player1_id if sets_won_p1 >= 3 else match_data.player2_id
+            
+            self.db.commit()
+            self.db.refresh(match)
+            
+            return match
+            
         except Exception as e:
-            await self.db.rollback()
+            self.db.rollback()
             raise HTTPException(status_code=400, detail=str(e))
 
-    async def get_match(self, match_id: int) -> Optional[Match]:
-        """Get match by ID."""
-        return await self.db.query(Match).filter(Match.id == match_id).first()
+    def get_match(self, match_id: int) -> Optional[Match]:
+        match = self.db.query(Match).filter(Match.id == match_id).first()
+        if not match:
+            raise HTTPException(status_code=404, detail="Match not found")
+        return match
 
-    async def get_player_matches(
+    def get_matches(
         self, 
-        player_id: int, 
         skip: int = 0, 
-        limit: int = 50
+        limit: int = 100,
+        player_id: Optional[int] = None,
+        tournament_id: Optional[int] = None
     ) -> List[Match]:
-        """Get all matches for a specific player."""
-        return await self.db.query(Match).filter(
-            (Match.winner_id == player_id) | (Match.loser_id == player_id)
-        ).order_by(Match.match_date.desc()).offset(skip).limit(limit).all()
+        query = self.db.query(Match)
+        
+        if player_id:
+            query = query.filter(
+                (Match.player1_id == player_id) | (Match.player2_id == player_id)
+            )
+            
+        if tournament_id:
+            query = query.filter(Match.tournament_id == tournament_id)
+            
+        return query.offset(skip).limit(limit).all()
 
-    async def get_head_to_head(
-        self, 
-        player1_id: int, 
-        player2_id: int
-    ) -> Tuple[int, int]:
-        """Get head-to-head record between two players."""
-        player1_wins = await self.db.query(Match).filter(
-            Match.winner_id == player1_id,
-            Match.loser_id == player2_id
-        ).count()
+    def update_match(
+        self,
+        match_id: int,
+        match_update: MatchUpdate
+    ) -> Match:
+        match = self.get_match(match_id)
         
-        player2_wins = await self.db.query(Match).filter(
-            Match.winner_id == player2_id,
-            Match.loser_id == player1_id
-        ).count()
+        if match_update.tournament_id is not None:
+            match.tournament_id = match_update.tournament_id
+            match.updated_at = datetime.utcnow()
+            
+        try:
+            self.db.commit()
+            self.db.refresh(match)
+            return match
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
+    
+    def delete_match(self, match_id: int) -> None:
+        match = self.get_match(match_id)
         
-        return (player1_wins, player2_wins)
+        try:
+            # Deleta os sets primeiro devido à chave estrangeira
+            self.db.query(Set).filter(Set.match_id == match_id).delete()
+            self.db.delete(match)
+            self.db.commit()
+        except Exception as e:
+            self.db.rollback()
+            raise HTTPException(status_code=400, detail=str(e))
