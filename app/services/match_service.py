@@ -7,11 +7,12 @@ from app.models.match import Match
 from app.models.player import Player
 from app.schemas.match import MatchCreate
 from app.services.ranking_service import RankingService
+from app.db.session import get_db
 
 class MatchService:
-    def __init__(self, db: Session):
-        self.db = db
-        self.ranking_service = RankingService(db)
+    def __init__(self):
+        self.db = get_db()
+        self.ranking_service = RankingService()
 
     async def create_match(self, match: MatchCreate) -> Match:
         """Create a new match and update players' ratings."""

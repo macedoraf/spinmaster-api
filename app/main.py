@@ -8,7 +8,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version="1.0.0",
     description="SpinMaster API - Sistema de Ranking de Tênis de Mesa",
-    openapi_url=f"{settings.API_V1_PREFIX}/openapi.json"
+    openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
 # Configurar CORS
@@ -21,7 +21,7 @@ app.add_middleware(
 )
 
 # Incluir rotas da API
-app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+app.include_router(api_router, prefix=settings.API_V1_STR)
 
 @app.get("/health")
 async def health_check():

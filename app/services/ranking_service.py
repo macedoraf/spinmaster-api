@@ -4,12 +4,14 @@ from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
 from app.models.player import Player
-from app.models.ranking import RankingHistory
-from app.utils.constants import K_FACTOR, RATING_SCALE
+from app.models.ranking import Ranking
+from app.utils.constants import K_FACTOR
+from app.db.session import get_db
+
 
 class RankingService:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self):
+        self.db = get_db()
 
     async def calculate_elo_change(
         self, 
@@ -18,7 +20,7 @@ class RankingService:
     ) -> float:
         """Calculate ELO rating change based on match result."""
         # Calculate expected scores
-        expected_winner = 1 / (1 + 10 ** ((loser_rating - winner_rating) / RATING_SCALE))
+        expected_winner = 1 / (1 + 10 ** ((loser_rating - winner_rating) / 1))
         expected_loser = 1 - expected_winner
         
         # Calculate rating changes
@@ -39,7 +41,7 @@ class RankingService:
         )
         
         # Create rating history records
-        winner_history = RankingHistory(
+        winner_history = Ranking(
             player_id=winner.id,
             old_rating=winner.rating,
             new_rating=winner.rating + winner_change,
@@ -47,7 +49,7 @@ class RankingService:
             timestamp=datetime.now()
         )
         
-        loser_history = RankingHistory(
+        loser_history = Ranking(
             player_id=loser.id,
             old_rating=loser.rating,
             new_rating=loser.rating + loser_change,
@@ -84,22 +86,22 @@ class RankingService:
         player_id: int,
         skip: int = 0,
         limit: int = 50
-    ) -> List[RankingHistory]:
+    ) -> List[Ranking]:
         """Get rating history for a specific player."""
-        return await self.db.query(RankingHistory).filter(
-            RankingHistory.player_id == player_id
-        ).order_by(RankingHistory.timestamp.desc()).offset(skip).limit(limit).all()
+        return await self.db.query(Ranking).filter(
+            Ranking.player_id == player_id
+        ).order_by(Ranking.timestamp.desc()).offset(skip).limit(limit).all()
 
     async def get_rating_timeline(
         self, 
         player_id: int,
         days: int = 30
-    ) -> List[RankingHistory]:
+    ) -> List[Ranking]:
         """Get player's rating timeline for the specified number of days."""
         from datetime import timedelta
         
         cutoff_date = datetime.now() - timedelta(days=days)
-        return await self.db.query(RankingHistory).filter(
-            RankingHistory.player_id == player_id,
-            RankingHistory.timestamp >= cutoff_date
-        ).order_by(RankingHistory.timestamp.asc()).all()
+        return await self.db.query(Ranking).filter(
+            Ranking.player_id == player_id,
+            Ranking.timestamp >= cutoff_date
+        ).order_by(Ranking.timestamp.asc()).all()

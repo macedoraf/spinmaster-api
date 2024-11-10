@@ -5,10 +5,12 @@ from fastapi import HTTPException
 from app.models.player import Player
 from app.schemas.player import PlayerCreate, PlayerUpdate
 from app.utils.constants import INITIAL_RATING
+from app.db.session import get_db
+
 
 class PlayerService:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self):
+        self.db = get_db()
 
     async def create_player(self, player: PlayerCreate) -> Player:
         """Create a new player with initial rating."""

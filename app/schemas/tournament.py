@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import Enum
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 class TournamentType(str, Enum):
     SINGLE_ELIMINATION = "single_elimination"

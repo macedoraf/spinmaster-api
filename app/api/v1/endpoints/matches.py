@@ -3,10 +3,11 @@ from sqlalchemy.orm import Session
 from typing import List
 
 from app.api import deps
-from app.schemas import MatchCreate, MatchResponse
-from app.services import match_service
+from app.schemas.match import MatchCreate, MatchResponse
+from app.services.match_service import MatchService
 
 router = APIRouter()
+match_service = MatchService()
 
 @router.post("/", response_model=MatchResponse)
 def create_match(

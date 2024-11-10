@@ -3,12 +3,13 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 
 from app.api import deps
-from app.schemas import TournamentCreate, TournamentResponse
-from app.services import tournament_service
+from app.schemas.tournament import TournamentCreate, Tournament
+from app.services.tournament_service import TournamentService
 
 router = APIRouter()
+tournament_service = TournamentService()
 
-@router.post("/", response_model=TournamentResponse)
+@router.post("/", response_model=Tournament)
 def create_tournament(
     tournament: TournamentCreate,
     db: Session = Depends(deps.get_db)
@@ -16,7 +17,7 @@ def create_tournament(
     """Create a new tournament"""
     return tournament_service.create_tournament(db=db, tournament=tournament)
 
-@router.get("/{tournament_id}", response_model=TournamentResponse)
+@router.get("/{tournament_id}", response_model=Tournament)
 def get_tournament(
     tournament_id: int = Path(..., title="The ID of the tournament to get"),
     db: Session = Depends(deps.get_db)
@@ -27,7 +28,7 @@ def get_tournament(
         raise HTTPException(status_code=404, detail="Tournament not found")
     return tournament
 
-@router.get("/", response_model=List[TournamentResponse])
+@router.get("/", response_model=List[Tournament])
 def list_tournaments(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=50),
@@ -35,7 +36,7 @@ def list_tournaments(
     db: Session = Depends(deps.get_db)
 ):
     """List tournaments with optional status filter"""
-    return tournament_service.get_tournaments(
+    return tournament_service.get_tournament(
         db=db, 
         skip=skip, 
         limit=limit, 

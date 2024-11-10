@@ -3,14 +3,16 @@ from datetime import datetime
 from sqlalchemy.orm import Session
 from fastapi import HTTPException
 
-from app.models.tournament import Tournament, TournamentPlayer
+from app.models.tournament import Tournament
+from app.models.player import Player
 from app.models.match import Match
 from app.schemas.tournament import TournamentCreate, TournamentUpdate
 from app.utils.constants import TOURNAMENT_STATUSES
+from app.db.session import get_db
 
 class TournamentService:
-    def __init__(self, db: Session):
-        self.db = db
+    def __init__(self):
+        self.db = get_db()
 
     async def create_tournament(self, tournament: TournamentCreate) -> Tournament:
         """Create a new tournament."""
@@ -66,18 +68,18 @@ class TournamentService:
         if tournament.status != TOURNAMENT_STATUSES['PENDING']:
             raise HTTPException(status_code=400, detail="Tournament registration is closed")
             
-        current_players = await self.db.query(TournamentPlayer).filter(
-            TournamentPlayer.tournament_id == tournament_id
+        current_players = await self.db.query(Tournament).filter(
+            Tournament.id == tournament_id
         ).count()
         
         if current_players >= tournament.max_players:
             raise HTTPException(status_code=400, detail="Tournament is full")
             
-        tournament_player = TournamentPlayer(
+        player = Player(
             tournament_id=tournament_id,
             player_id=player_id
         )
-        self.db.add(tournament_player)
+        self.db.add(player)
         
         try:
             await self.db.flush()

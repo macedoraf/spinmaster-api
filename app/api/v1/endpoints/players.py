@@ -4,9 +4,10 @@ from typing import List
 
 from app.api import deps
 from app.schemas import PlayerCreate, PlayerUpdate, PlayerResponse
-from app.services import player_service
+from app.services.player_service import PlayerService
 
 router = APIRouter()
+player_service = PlayerService()
 
 @router.post("/", response_model=PlayerResponse)
 def create_player(
@@ -54,7 +55,7 @@ def delete_player(
     db: Session = Depends(deps.get_db)
 ):
     """Delete a player"""
-    success = player_service.delete_player(db=db, player_id=player_id)
+    success = player_service.deactivate_player(db=db, player_id=player_id)
     if not success:
         raise HTTPException(status_code=404, detail="Player not found")
     return {"message": "Player successfully deleted"}
