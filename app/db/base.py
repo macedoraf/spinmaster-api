@@ -13,12 +13,9 @@ class CustomBase:
 Base = declarative_base(cls=CustomBase)
 
 # Importar os modelos em ordem de dependência
-from app.models.player import Player  # Tabela independente
-from app.models.tournament import Tournament  # Tabela independente
-# from app.models.tournament_player import TournamentPlayer  # Depende de Player e Tournament
-from app.models.match import Match  # Depende de Player e Tournament
-from app.models.set import Set  # Depende de Match
-from app.models.ranking import Ranking  # Depende de Player
+from app.models.player import Player
+from app.models.match import Match 
+from app.models.set import Set 
 
 # Create tables if they don't exist
 def init_db():
